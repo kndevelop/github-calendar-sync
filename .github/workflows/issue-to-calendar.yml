@@ -1,0 +1,34 @@
+name: Issue to Google Calendar
+
+on:
+  issues:
+    types:
+      - opened
+
+jobs:
+  create-calendar-event:
+    runs-on: ubuntu-latest
+
+    permissions:
+      issues: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Create Google Calendar Event
+        env:
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+
+          GOOGLE_CLIENT_EMAIL: ${{ secrets.GOOGLE_CLIENT_EMAIL }}
+          GOOGLE_PRIVATE_KEY: ${{ secrets.GOOGLE_PRIVATE_KEY }}
+          GOOGLE_CALENDAR_ID: ${{ secrets.GOOGLE_CALENDAR_ID }}
+
+        run: node scripts/issue-to-calendar.js
