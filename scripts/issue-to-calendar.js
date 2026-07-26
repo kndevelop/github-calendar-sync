@@ -18,19 +18,19 @@ if (!startMatch || !endMatch) {
 const start = startMatch[1].trim().replace(" ", "T") + ":00+09:00";
 const end = endMatch[1].trim().replace(" ", "T") + ":00+09:00";
 
-const auth = new google.auth.JWT(
-    process.env.GOOGLE_CLIENT_EMAIL,
-    null,
-    process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, "\n"),
-    ["https://www.googleapis.com/auth/calendar"]
-);
-
-const calendar = google.calendar({
-    version: "v3",
-    auth
-});
-
 async function createEvent() {
+
+    // Workload Identity Federationで認証
+    const auth = new google.auth.GoogleAuth({
+        scopes: ["https://www.googleapis.com/auth/calendar"]
+    });
+
+    const authClient = await auth.getClient();
+
+    const calendar = google.calendar({
+        version: "v3",
+        auth: authClient
+    });
 
     const event = {
         summary: title,
@@ -48,7 +48,11 @@ async function createEvent() {
         requestBody: event
     });
 
+    console.log("イベントを作成しました");
     console.log(res.data.htmlLink);
 }
 
-createEvent();
+createEvent().catch(err => {
+    console.error(err);
+    process.exit(1);
+});
