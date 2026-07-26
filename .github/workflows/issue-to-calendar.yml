@@ -5,17 +5,25 @@ on:
     types:
       - opened
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   create-calendar-event:
     runs-on: ubuntu-latest
 
-    permissions:
-      issues: read
-
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.SERVICE_ACCOUNT }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 20
 
@@ -26,9 +34,6 @@ jobs:
         env:
           ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_BODY: ${{ github.event.issue.body }}
-
-          GOOGLE_CLIENT_EMAIL: ${{ secrets.GOOGLE_CLIENT_EMAIL }}
-          GOOGLE_PRIVATE_KEY: ${{ secrets.GOOGLE_PRIVATE_KEY }}
           GOOGLE_CALENDAR_ID: ${{ secrets.GOOGLE_CALENDAR_ID }}
 
         run: node scripts/issue-to-calendar.js
