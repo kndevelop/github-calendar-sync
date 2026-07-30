@@ -1,58 +1,91 @@
 const { google } = require("googleapis");
 
-const body = process.env.ISSUE_BODY;
-const title = process.env.ISSUE_TITLE;
+const auth = new google.auth.JWT(
+  process.env.GOOGLE_CLIENT_EMAIL,
+  null,
+  process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+  ["https://www.googleapis.com/auth/calendar"]
+);
 
-// 例
-// 開始:2026-08-01 19:00
-// 終了:2026-08-01 21:00
+const calendar = google.calendar({
+  version: "v3",
+  auth,
+});
 
-const startMatch = body.match(/開始:(.+)/);
-const endMatch = body.match(/終了:(.+)/);
+/**
+ * Issue Formsの値を取得
+ */
+function getValue(body, label) {
+  const regex = new RegExp(
+    `### ${label}\\s*\\n\\s*([\\s\\S]*?)(?=\\n### |$)`
+  );
 
-if (!startMatch || !endMatch) {
-    console.log("開始・終了日時が見つかりません");
-    process.exit(1);
+  const match = body.match(regex);
+  return match ? match[1].trim() : "";
 }
 
-const start = startMatch[1].trim().replace(" ", "T") + ":00+09:00";
-const end = endMatch[1].trim().replace(" ", "T") + ":00+09:00";
+/**
+ * 所要時間→分へ変換
+ */
+const durationMap = {
+  "15分": 15,
+  "30分": 30,
+  "1時間": 60,
+  "2時間": 120,
+  "3時間": 180,
+  "半日": 240,
+  "1日": 480,
+};
 
-async function createEvent() {
+(async () => {
+  try {
+    const body = process.env.ISSUE_BODY;
 
-    // Workload Identity Federationで認証
-    const auth = new google.auth.GoogleAuth({
-        scopes: ["https://www.googleapis.com/auth/calendar"]
-    });
+    const title = getValue(body, "タスク名");
+    const startDateTime = getValue(body, "開始日時");
+    const duration = getValue(body, "所要時間");
+    const memo = getValue(body, "詳細");
 
-    const authClient = await auth.getClient();
+    if (!title) throw new Error("タスク名がありません");
+    if (!startDateTime) throw new Error("開始日時がありません");
+    if (!durationMap[duration]) throw new Error(`所要時間が不正です: ${duration}`);
 
-    const calendar = google.calendar({
-        version: "v3",
-        auth: authClient
-    });
+    // 開始日時
+    const start = new Date(
+      startDateTime.replace(" ", "T") + ":00+09:00"
+    );
 
-    const event = {
+    // 終了日時
+    const end = new Date(
+      start.getTime() + durationMap[duration] * 60 * 1000
+    );
+
+    console.log("タイトル:", title);
+    console.log("開始:", start);
+    console.log("終了:", end);
+
+    const event = await calendar.events.insert({
+      calendarId: process.env.GOOGLE_CALENDAR_ID,
+      requestBody: {
         summary: title,
-        description: body,
+        description: `優先度: ${memo}`,
         start: {
-            dateTime: start
+          dateTime: start.toISOString(),
+          timeZone: "Asia/Tokyo",
         },
         end: {
-            dateTime: end
-        }
-    };
-
-    const res = await calendar.events.insert({
-        calendarId: process.env.GOOGLE_CALENDAR_ID,
-        requestBody: event
+          dateTime: end.toISOString(),
+          timeZone: "Asia/Tokyo",
+        },
+      },
     });
 
-    console.log("イベントを作成しました");
-    console.log(res.data.htmlLink);
-}
+    console.log("イベント作成成功");
+    console.log(event.data.htmlLink);
+    console.log("Event ID:", event.data.id);
 
-createEvent().catch(err => {
+  } catch (err) {
     console.error(err);
     process.exit(1);
-});
+  }
+})();
