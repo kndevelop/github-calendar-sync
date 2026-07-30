@@ -21,13 +21,19 @@ body:
     validations:
       required: true
 
-  - type: input
-    id: end
+  - type: dropdown
+    id: duration
     attributes:
-      label: 終了日時
-      description: YYYY-MM-DD HH:mm
-    validations:
-      required: true
+      label: 所要時間
+      default: 2
+      options:
+        - "15分"
+        - "30分"
+        - "1時間"
+        - "2時間"
+        - "3時間"
+        - "半日"
+        - "1日"
 
   - type: textarea
     id: description
