@@ -1,3 +1,9 @@
+name: ToDo
+description: タスクを登録します
+title: "[TODO] "
+labels:
+  - todo
+
 body:
   - type: input
     id: summary
